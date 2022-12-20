@@ -39,6 +39,47 @@ extension FormzSubmissionStatusX on FormzSubmissionStatus {
 }
 
 /// {@template form_input}
+/// A [FormzInputBase] represents the base class of the [FormzInput] and
+/// [AsyncFormzInput] classes. This class is used to validate by the [Formz]
+/// class its validate method.
+///
+/// ```dart
+/// final FormzInput syncInput = NameInput.dirty(value: 'jan');
+/// final AsyncFormzInput asyncInput = EmailInput.dirty(value: 'test@test.com'),
+///
+/// const inputs = <FormzInputBase>[
+///   FormzInput,
+///   AsyncFormzInput,
+/// ];
+///
+/// final status = Formz.validate(validInputs);
+/// ```
+/// {@endtemplate}
+@immutable
+abstract class FormzInputBase<T, E> {
+  /// The value of the given [FormzInput].
+  /// For example, if you have a `FormzInput` for `FirstName`,
+  /// the value could be 'Joe'.
+  T get value;
+
+  /// Whether the [FormzInput] value is valid according to the
+  /// overridden `validator`.
+  ///
+  /// Returns `true` if `validator` returns `null` for the
+  /// current [FormzInput] value and `false` otherwise.
+  bool get isValid;
+
+  /// Whether the [FormzInput] value is not valid.
+  /// A value is invalid when the overridden `validator`
+  /// returns an error (non-null value).
+  bool get isNotValid => !isValid;
+
+  /// Returns a validation error if the [FormzInput] is invalid.
+  /// Returns `null` if the [FormzInput] is valid.
+  E? get error;
+}
+
+/// {@template form_input}
 /// A [FormzInput] represents the value of a single form input field.
 /// It contains information about the [value] as well as validity.
 ///
@@ -58,7 +99,7 @@ extension FormzSubmissionStatusX on FormzSubmissionStatus {
 /// ```
 /// {@endtemplate}
 @immutable
-abstract class FormzInput<T, E> {
+abstract class FormzInput<T, E> implements FormzInputBase<T, E> {
   const FormzInput._({required this.value, this.isPure = true});
 
   /// Constructor which create a `pure` [FormzInput] with a given value.
@@ -67,9 +108,7 @@ abstract class FormzInput<T, E> {
   /// Constructor which create a `dirty` [FormzInput] with a given value.
   const FormzInput.dirty(T value) : this._(value: value, isPure: false);
 
-  /// The value of the given [FormzInput].
-  /// For example, if you have a `FormzInput` for `FirstName`,
-  /// the value could be 'Joe'.
+  @override
   final T value;
 
   /// If the [FormzInput] is pure (has been touched/modified).
@@ -82,20 +121,13 @@ abstract class FormzInput<T, E> {
   /// the `FormzInput` has been manipulated.
   final bool isPure;
 
-  /// Whether the [FormzInput] value is valid according to the
-  /// overridden `validator`.
-  ///
-  /// Returns `true` if `validator` returns `null` for the
-  /// current [FormzInput] value and `false` otherwise.
+  @override
   bool get isValid => validator(value) == null;
 
-  /// Whether the [FormzInput] value is not valid.
-  /// A value is invalid when the overridden `validator`
-  /// returns an error (non-null value).
+  @override
   bool get isNotValid => !isValid;
 
-  /// Returns a validation error if the [FormzInput] is invalid.
-  /// Returns `null` if the [FormzInput] is valid.
+  @override
   E? get error => validator(value);
 
   /// The error to display if the [FormzInput] value
@@ -130,7 +162,7 @@ abstract class FormzInput<T, E> {
 class Formz {
   /// Returns a [bool] given a list of [FormzInput] indicating whether
   /// the inputs are all valid.
-  static bool validate(List<FormzInput<dynamic, dynamic>> inputs) {
+  static bool validate(List<FormzInputBase<dynamic, dynamic>> inputs) {
     return inputs.every((input) => input.isValid);
   }
 }
@@ -166,5 +198,179 @@ mixin FormzMixin {
   ///
   /// Override this and give it all [FormzInput]s in your class that should be
   /// validated automatically.
-  List<FormzInput<dynamic, dynamic>> get inputs;
+  List<FormzInputBase<dynamic, dynamic>> get inputs;
+}
+
+/// {@template async_form_input}
+/// A [AsyncFormzInputValidator] represents a validator to asynchronously
+/// validate a [AsyncFormzInput] field.
+///
+/// ```dart
+///class EmailValidator
+///    extends AsyncFormInputValidator<Email, String, EmailValidationError> {
+///  const EmailValidator({
+///    required EmailRepository emailRepository,
+///  }) : _emailRepository = emailRepository;
+///
+///  final EmailRepository _emailRepository;
+///
+///  @override
+///  Future<EmailValidationError?> validate(Email input) async {
+///    if (input.required && input.value.isEmpty) {
+///      return const EmailValidationError.required();
+///    }
+///
+///    final alreadyExist = await _emailRepository.findByAddress(input.value);
+///    if (alreadyExist) {
+///      return const EmailValidationError.alreadyExists();
+///    }
+///
+///    return null;
+///  }
+///}
+/// ```
+/// {@endtemplate}
+abstract class AsyncFormzInputValidator<
+    TInput extends AsyncFormzInput<TValue, TError>, TValue, TError> {
+  /// Constructor which creates a [AsyncFormzInputValidator].
+  const AsyncFormzInputValidator();
+
+  /// Validates the [input] and returns a [Future] containing the validation
+  /// error. Returns null if the [input] is valid.
+  ///
+  /// ```dart
+  ///@override
+  ///Future<EmailValidationError?> validate(Email input) async {
+  ///  if (input.required && input.value.isEmpty) {
+  ///    return const EmailValidationError.required();
+  ///  }
+  ///
+  ///  final validFormat = RegVal.hasMatch(
+  ///    input.value,
+  ///    _kEmailPattern,
+  ///  );
+  ///  if (!validFormat) {
+  ///    return const EmailValidationError.invalidFormat();
+  ///  }
+  ///
+  ///  final alreadyExist = await _emailRepository.findByAddress(input.value);
+  ///  if (alreadyExist) {
+  ///    return const EmailValidationError.alreadyExists();
+  ///  }
+  ///
+  ///  return null;
+  ///}
+  /// ```
+  Future<TError?> validate(TInput input);
+
+  /// Returns whether the [TInput] is ready for validation.
+  ///
+  /// ```dart
+  /// @override
+  ///bool canValidate(Email input) {
+  ///  if (input.validationStatus.isValidated) {
+  ///    return true;
+  ///  }
+  ///  final validFormat = RegVal.hasMatch(
+  ///    input.value,
+  ///    _kEmailPattern,
+  ///  );
+  ///  return validFormat;
+  ///}
+  /// ```
+  bool canValidate(TInput input) => true;
+}
+
+/// Enum representing the validation status of a [AsyncFormzInput] object.
+enum AsyncFormzInputValidationStatus {
+  /// Indicates whether the [AsyncFormzInput] has not been validated.
+  pure,
+
+  /// Indicates whether the [AsyncFormzInput] is being validated.
+  validating,
+
+  /// Indicates whether the [AsyncFormzInput] has been validated.
+  validated,
+}
+
+/// Useful extensions on [AsyncFormzInputValidationStatus]
+extension AsyncFormzInputValidationStatusX on AsyncFormzInputValidationStatus {
+  /// Indicates whether the [AsyncFormzInput] has not been validated.
+  bool get isPure => this == AsyncFormzInputValidationStatus.pure;
+
+  /// Indicates whether the [AsyncFormzInput] is being validated.
+  bool get isValidating => this == AsyncFormzInputValidationStatus.validating;
+
+  /// Indicates whether the [AsyncFormzInput] is not being validated.
+  bool get isNotValidating => !isValidating;
+
+  /// Indicates whether the [AsyncFormzInput] is validated.
+  bool get isValidated => this == AsyncFormzInputValidationStatus.validated;
+}
+
+/// {@template form_input}
+/// A [AsyncFormzInput] represents the value of a single form input field.
+/// It contains information about the [value] as well as validity.
+///
+/// [AsyncFormzInput] should be extended to define custom [AsyncFormzInput]
+/// instances.
+///
+/// ```dart
+///class Email extends AsyncFormzInput<String, EmailValidationError> {
+///  const Email(
+///    super.value, {
+///    super.error,
+///    super.validationStatus,
+///    this.isRequired = true,
+///  });
+///
+///  final bool isRequired;
+///}
+/// ```
+/// {@endtemplate}
+@immutable
+abstract class AsyncFormzInput<T, E> implements FormzInputBase<T, E> {
+  /// Constructor which create a [FormzInput] with a given value.
+  const AsyncFormzInput(
+    this.value, {
+    this.error,
+    AsyncFormzInputValidationStatus? validationStatus,
+  }) : validationStatus =
+            validationStatus ?? AsyncFormzInputValidationStatus.pure;
+
+  @override
+  final T value;
+
+  @override
+  bool get isValid => validationStatus.isValidated && error == null;
+
+  @override
+  bool get isNotValid => !isValid;
+
+  @override
+  final E? error;
+
+  /// The validation status of the [AsyncFormzInput].
+  final AsyncFormzInputValidationStatus validationStatus;
+
+  @override
+  int get hashCode => Object.hashAll([value, error, validationStatus]);
+  @override
+  bool operator ==(Object other) {
+    if (other.runtimeType != runtimeType) {
+      return false;
+    }
+    return other is AsyncFormzInput<T, E> &&
+        other.value == value &&
+        other.error == error &&
+        other.validationStatus == validationStatus;
+  }
+
+  @override
+  String toString() => '''
+$runtimeType(
+  value: '$value', 
+  error: $error, 
+  validationStatus: $validationStatus, 
+)''';
 }
