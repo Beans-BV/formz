@@ -230,8 +230,7 @@ mixin FormzMixin {
 ///}
 /// ```
 /// {@endtemplate}
-abstract class AsyncFormzInputValidator<
-    TInput extends AsyncFormzInput<TValue, TError>, TValue, TError> {
+abstract class AsyncFormzInputValidator<TInput, TValue, TError> {
   /// Constructor which creates a [AsyncFormzInputValidator].
   const AsyncFormzInputValidator();
 
