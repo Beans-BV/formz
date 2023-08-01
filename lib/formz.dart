@@ -289,7 +289,27 @@ enum AsyncFormzInputValidationStatus {
   validating,
 
   /// Indicates whether the [AsyncFormzInput] has been validated.
-  validated,
+  validated;
+
+  /// Parses the [name] to the corresponding [AsyncFormzInputValidationStatus].
+  static AsyncFormzInputValidationStatus parse(String name) {
+    return AsyncFormzInputValidationStatus.values.firstWhere(
+      (e) => e.name.toLowerCase() == name.toLowerCase(),
+      orElse: () => throw FormatException(
+        'Unknown value for enum AsyncFormzInputValidationStatus: $name',
+      ),
+    );
+  }
+
+  /// Tries to parse the [name] to the corresponding
+  /// [AsyncFormzInputValidationStatus].
+  static AsyncFormzInputValidationStatus? tryParse(String name) {
+    try {
+      return parse(name);
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 /// Useful extensions on [AsyncFormzInputValidationStatus]
