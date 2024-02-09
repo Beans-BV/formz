@@ -361,7 +361,7 @@ abstract class AsyncFormzInput<T, E> implements FormzInputBase<T, E> {
   final T value;
 
   @override
-  bool get isValid => validationStatus.isValidated && error == null;
+  bool get isValid;
 
   @override
   bool get isNotValid => !isValid;

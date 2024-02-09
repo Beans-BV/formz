@@ -8,6 +8,9 @@ class NameAsyncInput extends AsyncFormzInput<String, NameAsyncInputError> {
     super.error,
     super.validationStatus,
   });
+
+  @override
+  bool get isValid => validationStatus.isValidated && error == null;
 }
 
 class NameAsyncFormzInputValidator extends AsyncFormzInputValidator<
